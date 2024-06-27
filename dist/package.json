@@ -1,0 +1,28 @@
+{
+  "name": "@scoopika/react",
+  "version": "1.0.4",
+  "description": "Build interactive AI-powered React applications around AI agents",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "scripts": {
+    "build": "tsup --dts-resolve && cp ./package.json ./dist/ && cp ./README.md ./dist/",
+    "test": "tsc && rm -r ./dist && bunx vitest --watch false --testTimeout 300000"
+  },
+  "keywords": [
+    "AI",
+    "AI Agents",
+    "React hooks"
+  ],
+  "author": "Kais Radwan",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "tsup": "^8.1.0",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@scoopika/client": "^1.2.2",
+    "@scoopika/types": "^2.2.1",
+    "react": "^18.3.1"
+  }
+}
