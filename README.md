@@ -4,4 +4,6 @@ This repository provides building blocks and built-in state management to easily
 
 [npm](https://www.npmjs.com/package/@scoopika/react)
 
+[Github](https://github.com/scoopika/react)
+
 [Documentation](https://docs.scoopika.com/packages/ts/react)
