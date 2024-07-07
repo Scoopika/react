@@ -5964,7 +5964,7 @@ var Scoopika = (() => {
         schema
       }) {
         return {
-          type: "function",
+          type: "client-side",
           executor: execute,
           tool: {
             type: "function",
@@ -6075,6 +6075,9 @@ var Scoopika = (() => {
           this.client_actions = this.client_actions.filter(
             (c) => c.tool.function.name !== name
           );
+        }
+        removeAllClientActions() {
+          this.client_actions = [];
         }
         cancelRun(run_id) {
           this.paused_runs.push(run_id);
@@ -6250,6 +6253,7 @@ var Scoopika = (() => {
         audioChunks = [];
         stream = null;
         audioBlob = null;
+        started = false;
         audioContext = null;
         analyser = null;
         source = null;
@@ -6390,6 +6394,7 @@ var Scoopika = (() => {
             if (!this.isRecording && this.mediaRecorder) {
               this.mediaRecorder.start();
               this.isRecording = true;
+              this.started = true;
               this.isPaused = false;
               this.startSpeechRecognition();
             }
@@ -6428,12 +6433,12 @@ var Scoopika = (() => {
         }
         getBlob() {
           if (!this.audioBlob)
-            throw new Error("No audio blob available");
+            return null;
           return this.audioBlob;
         }
         getObjectUrl() {
           if (!this.audioBlob)
-            throw new Error("No audio blob available");
+            return null;
           const url = URL.createObjectURL(this.audioBlob);
           return url;
         }
@@ -6456,7 +6461,7 @@ var Scoopika = (() => {
           }
           return new Promise((resolve) => {
             if (!this.audioBlob) {
-              resolve(void 0);
+              resolve(null);
               return;
             }
             const reader = new FileReader();
@@ -6476,6 +6481,7 @@ var Scoopika = (() => {
         }
         async finish() {
           this.stop();
+          this.started = false;
           if (!this.recognition) {
             return this;
           }
@@ -6682,15 +6688,15 @@ var Scoopika = (() => {
           return;
         }
         const element = typeof elm === "string" ? document.getElementById(elm) : elm;
-        if (!element) {
-          throw new Error(`Button element not found!`);
-        }
         const text = element.innerText;
         description = description ?? element.getAttribute("data-scoopika-description") ?? `Click this button when asked to click on ${text}`;
         const action = {
           name: `click_${text.toLowerCase().replace(" ", "_")}`,
           description,
           execute: async ({ delay }) => {
+            if (!element) {
+              throw new Error(`Button element not found!`);
+            }
             if (typeof delay === "number")
               await sleep_default2(delay);
             element.click();
@@ -6708,15 +6714,15 @@ var Scoopika = (() => {
           return;
         }
         const element = typeof elm === "string" ? document.getElementById(elm) : elm;
-        if (!element) {
-          throw new Error(`Button element not found!`);
-        }
         const text = element.id || element.placeholder;
         description = description ?? element.getAttribute("data-scoopika-description") ?? `Enter value in this input element. it's about '${text}'`;
         const action = {
           name: `enter_value_in_${text.toLowerCase().replace(" ", "_")}`,
           description,
           execute: async ({ value }) => {
+            if (!element) {
+              throw new Error(`Button element not found!`);
+            }
             element.value = value;
           },
           parameters: import_zod2.z.object({
@@ -8970,6 +8976,9 @@ var Scoopika = (() => {
       const messages2 = await clientInstance.store.getSessionRuns(id);
       setMessages(messages2);
       setLoadingSession(false);
+      if (state_options == null ? void 0 : state_options.scroll) {
+        scroll();
+      }
     };
     const changeSession = async (session2) => {
       const id = session2 ?? crypto.randomUUID();
@@ -9096,7 +9105,7 @@ var Scoopika = (() => {
   var import_client2 = __toESM(require_client());
   var import_react2 = __toESM(require_react());
   function useVoiceChatState(client, agent, state_options) {
-    const [chatState] = (0, import_react2.useState)(useChatState(client, agent, state_options));
+    const chatState = useChatState(client, agent, state_options);
     const [agentVoicePlayer, setAgentVoicePlayer] = (0, import_react2.useState)(null);
     const [voiceRecorder, setVoiceRecorder] = (0, import_react2.useState)(null);
     const [voicePlaying, setVoicePlaying] = (0, import_react2.useState)(false);
@@ -9156,17 +9165,28 @@ var Scoopika = (() => {
           setPlayerPaused(false);
         }
         let player = null;
-        if (voiceRecorder) voiceRecorder.stop();
-        if (!inputs && voiceRecorder) {
-          inputs = await voiceRecorder.asRunInput();
-        }
-        if (!inputs) {
-          throw new Error("No inputs provided to be processed by the agent");
+        if (voiceRecorder == null ? void 0 : voiceRecorder.started) voiceRecorder.stop();
+        inputs = inputs || {};
+        if (voiceRecorder == null ? void 0 : voiceRecorder.started) {
+          const recorderInputs = voiceRecorder ? await voiceRecorder.asRunInput() : null;
+          let message = (inputs == null ? void 0 : inputs.message) || "";
+          const audio = (inputs == null ? void 0 : inputs.audio) || [];
+          if (recorderInputs == null ? void 0 : recorderInputs.message) {
+            if (message.length > 0) message += "\n";
+            message += recorderInputs.message;
+          }
+          if (recorderInputs == null ? void 0 : recorderInputs.audio) {
+            audio.push(...recorderInputs.audio);
+          }
+          inputs = { ...inputs || {}, message, audio };
         }
         setWorking(true);
+        if (voiceRecorder == null ? void 0 : voiceRecorder.started) await voiceRecorder.finish();
         options = { voice: true, ...options || {} };
         if (state_options == null ? void 0 : state_options.agent_voice) {
-          player = new import_client2.RunAudioPlayer(state_options.agent_voice.audio);
+          player = new import_client2.RunAudioPlayer(
+            state_options.agent_voice.audio
+          );
           setAgentVoicePlayer(player);
         }
         if (visualizer) visualizer.getReady();
@@ -9174,6 +9194,9 @@ var Scoopika = (() => {
           ...hooks || {},
           onAudio: (stream) => {
             if ((state_options == null ? void 0 : state_options.auto_play_audio) !== false) {
+              if (!(player == null ? void 0 : player.paused)) {
+                setPlayerPaused(false);
+              }
               setVoicePlaying(true);
               if (player) player.queue(stream);
             }
@@ -9189,6 +9212,8 @@ var Scoopika = (() => {
         if (player && response) await player.finish(response.audio.length);
         setVoicePlaying(false);
         return response;
+      } catch (err) {
+        console.error(err);
       } finally {
         setWorking(false);
         setVoicePlaying(false);

@@ -1,6 +1,6 @@
 {
   "name": "@scoopika/react",
-  "version": "1.0.5",
+  "version": "1.1.9",
   "description": "Build interactive AI-powered React applications around AI agents",
   "main": "./index.js",
   "types": "./index.d.ts",
@@ -21,7 +21,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "@scoopika/client": "^1.2.2",
+    "@scoopika/client": "^1.2.7",
     "@scoopika/types": "^2.2.1",
     "react": "^18.3.1"
   }

@@ -23,7 +23,7 @@ export function useVoiceChatState(
   agent: Agent,
   state_options?: UseVoiceChatStateOptions
 ) {
-  const [chatState] = useState(useChatState(client, agent, state_options));
+  const chatState = useChatState(client, agent, state_options);
   const [agentVoicePlayer, setAgentVoicePlayer] = useState<
     RunAudioPlayer | null
   >(null);
@@ -102,20 +102,33 @@ export function useVoiceChatState(
 
       let player: RunAudioPlayer | null = null;
 
-      if (voiceRecorder) voiceRecorder.stop();
+      if (voiceRecorder?.started) voiceRecorder.stop();
+      inputs = inputs || {};
 
-      if (!inputs && voiceRecorder) {
-        inputs = await voiceRecorder.asRunInput();
-      }
+      if (voiceRecorder?.started) {
+        const recorderInputs = voiceRecorder ? await voiceRecorder.asRunInput() : null;
+        let message = inputs?.message || "";
+        const audio = inputs?.audio || [];
 
-      if (!inputs) {
-        throw new Error("No inputs provided to be processed by the agent");
+        if (recorderInputs?.message) {
+          if (message.length > 0) message += "\n";
+          message += recorderInputs.message;
+        }
+
+        if (recorderInputs?.audio) {
+          audio.push(...recorderInputs.audio);
+        }
+
+        inputs = {...(inputs || {}), message, audio};
       }
 
       setWorking(true);
+      if (voiceRecorder?.started) await voiceRecorder.finish();
       options = { voice: true, ...(options || {}) };
       if (state_options?.agent_voice) {
-        player = new RunAudioPlayer(state_options.agent_voice.audio);
+        player = new RunAudioPlayer(
+          state_options.agent_voice.audio
+        );
         setAgentVoicePlayer(player);
       }
 
@@ -125,6 +138,9 @@ export function useVoiceChatState(
         ...(hooks || {}),
         onAudio: (stream) => {
           if (state_options?.auto_play_audio !== false) {
+            if (!player?.paused) {
+              setPlayerPaused(false);
+            }
             setVoicePlaying(true);
             if (player) player.queue(stream);
           }
@@ -144,6 +160,8 @@ export function useVoiceChatState(
 
       setVoicePlaying(false);
       return response;
+    } catch (err) {
+      console.error(err);
     } finally {
       setWorking(false);
       setVoicePlaying(false);

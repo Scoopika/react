@@ -101,6 +101,9 @@ function useChatState(client, agent, state_options) {
     const messages2 = await clientInstance.store.getSessionRuns(id);
     setMessages(messages2);
     setLoadingSession(false);
+    if (state_options == null ? void 0 : state_options.scroll) {
+      scroll();
+    }
   };
   const changeSession = async (session2) => {
     const id = session2 ?? crypto.randomUUID();
@@ -227,7 +230,7 @@ function useChatState(client, agent, state_options) {
 var import_client2 = require("@scoopika/client");
 var import_react2 = require("react");
 function useVoiceChatState(client, agent, state_options) {
-  const [chatState] = (0, import_react2.useState)(useChatState(client, agent, state_options));
+  const chatState = useChatState(client, agent, state_options);
   const [agentVoicePlayer, setAgentVoicePlayer] = (0, import_react2.useState)(null);
   const [voiceRecorder, setVoiceRecorder] = (0, import_react2.useState)(null);
   const [voicePlaying, setVoicePlaying] = (0, import_react2.useState)(false);
@@ -287,17 +290,28 @@ function useVoiceChatState(client, agent, state_options) {
         setPlayerPaused(false);
       }
       let player = null;
-      if (voiceRecorder) voiceRecorder.stop();
-      if (!inputs && voiceRecorder) {
-        inputs = await voiceRecorder.asRunInput();
-      }
-      if (!inputs) {
-        throw new Error("No inputs provided to be processed by the agent");
+      if (voiceRecorder == null ? void 0 : voiceRecorder.started) voiceRecorder.stop();
+      inputs = inputs || {};
+      if (voiceRecorder == null ? void 0 : voiceRecorder.started) {
+        const recorderInputs = voiceRecorder ? await voiceRecorder.asRunInput() : null;
+        let message = (inputs == null ? void 0 : inputs.message) || "";
+        const audio = (inputs == null ? void 0 : inputs.audio) || [];
+        if (recorderInputs == null ? void 0 : recorderInputs.message) {
+          if (message.length > 0) message += "\n";
+          message += recorderInputs.message;
+        }
+        if (recorderInputs == null ? void 0 : recorderInputs.audio) {
+          audio.push(...recorderInputs.audio);
+        }
+        inputs = { ...inputs || {}, message, audio };
       }
       setWorking(true);
+      if (voiceRecorder == null ? void 0 : voiceRecorder.started) await voiceRecorder.finish();
       options = { voice: true, ...options || {} };
       if (state_options == null ? void 0 : state_options.agent_voice) {
-        player = new import_client2.RunAudioPlayer(state_options.agent_voice.audio);
+        player = new import_client2.RunAudioPlayer(
+          state_options.agent_voice.audio
+        );
         setAgentVoicePlayer(player);
       }
       if (visualizer) visualizer.getReady();
@@ -305,6 +319,9 @@ function useVoiceChatState(client, agent, state_options) {
         ...hooks || {},
         onAudio: (stream) => {
           if ((state_options == null ? void 0 : state_options.auto_play_audio) !== false) {
+            if (!(player == null ? void 0 : player.paused)) {
+              setPlayerPaused(false);
+            }
             setVoicePlaying(true);
             if (player) player.queue(stream);
           }
@@ -320,6 +337,8 @@ function useVoiceChatState(client, agent, state_options) {
       if (player && response) await player.finish(response.audio.length);
       setVoicePlaying(false);
       return response;
+    } catch (err) {
+      console.error(err);
     } finally {
       setWorking(false);
       setVoicePlaying(false);

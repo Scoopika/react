@@ -107,6 +107,9 @@ export function useChatState(
     const messages = await clientInstance.store.getSessionRuns(id);
     setMessages(messages);
     setLoadingSession(false);
+    if (state_options?.scroll) {
+      scroll();
+    }
   }
 
   const changeSession = async (session?: string) => {
